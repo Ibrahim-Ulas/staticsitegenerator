@@ -1,1 +1,2 @@
-python3 -m unittest discover -s src
+cd /home/iboalp/staticsitegenerator
+python3 -m unittest discover -s src/tests -t .
