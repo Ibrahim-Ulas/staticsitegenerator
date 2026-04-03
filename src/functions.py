@@ -2,6 +2,7 @@ import re
 
 from .textnode import TextType, TextNode
 from .htmlnode import LeafNode
+from .block_type import BlockType
 
 def text_node_to_html_node(text_node):
 
@@ -46,4 +47,95 @@ def extract_markdown_links(text):
     return matches
 
 def split_nodes_image(old_nodes):
+    new_nodes = []
+    for node in old_nodes:
+        if node.text_type != TextType.PLAIN:
+            new_nodes.append(node)
+            continue
+        extracted = extract_markdown_images(node.text)
+        if extracted == []:
+            new_nodes.append(node)
+            continue
+        remaining = node.text
+        for part in extracted:
+            splitted = remaining.split(f"![{part[0]}]({part[1]})", 1)
+            if splitted[0] != "":
+                new_nodes.append(TextNode(splitted[0], TextType.PLAIN))
+            new_nodes.append(TextNode(part[0], TextType.IMAGE, part[1]))
+            remaining = splitted[1]
+        if remaining != "":
+            new_nodes.append(TextNode(remaining, TextType.PLAIN))
+    return new_nodes
+
+def split_nodes_link(old_nodes):
+    new_nodes = []
+    for node in old_nodes:
+        if node.text_type != TextType.PLAIN:
+            new_nodes.append(node)
+            continue
+        extracted = extract_markdown_links(node.text)
+        if extracted == []:
+            new_nodes.append(node)
+            continue
+        remaining = node.text
+        for part in extracted:
+            splitted = remaining.split(f"[{part[0]}]({part[1]})", 1)
+            if splitted[0] != "":
+                new_nodes.append(TextNode(splitted[0], TextType.PLAIN))
+            new_nodes.append(TextNode(part[0], TextType.LINK, part[1]))
+        remaining = splitted[1]
+        if remaining != "":
+            new_nodes.append(TextNode(remaining, TextType.PLAIN))
+    return new_nodes
+
+def text_to_textnodes(text):
+    nodes = [TextNode(text, TextType.PLAIN)]
+    nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
+    nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+    nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
+    nodes = split_nodes_image(nodes)
+    nodes = split_nodes_link(nodes)
+    return nodes
+
+def markdown_to_blocks(markdown):
+    blocks = markdown.split("\n\n")
+    new_blocks = []
+    for block in blocks:
+        stripped = block.strip()
+        if stripped != "":
+            new_blocks.append(stripped)
+    return new_blocks
+
+def block_to_block_type(markdown):
+    if markdown.startswith(("# ", "## ", "### ", "#### ", "##### ", "###### ")):
+        return BlockType.H
+    if markdown.startswith("```") and markdown.endswith("```"):
+        return BlockType.C
+    lines = markdown.split("\n")
+    counter = 1
+    if markdown.startswith(">"):
+        for line in lines:
+            if not line.startswith(">"):
+                return BlockType.P
+        return BlockType.Q
     
+    if markdown.startswith("- "):
+        for line in lines:
+            if not line.startswith("- "):
+                return BlockType.P
+        return BlockType.UL
+
+    if markdown.startswith("1. "):
+        for line in lines:
+            if not line.startswith(f"{counter}. "):
+                return BlockType.P
+            counter += 1
+        return BlockType.OL
+    return BlockType.P
+
+    def markdown_to_html_node(markdown):
+        blocks = markdown_to_blocks(markdown)
+
+        for block in blocks:
+            block_type = block_to_block_type(block)
+            
