@@ -1,7 +1,7 @@
 import re
 
 from .textnode import TextType, TextNode
-from .htmlnode import LeafNode
+from .htmlnode import LeafNode, ParentNode
 from .block_type import BlockType
 
 def text_node_to_html_node(text_node):
@@ -133,9 +133,59 @@ def block_to_block_type(markdown):
         return BlockType.OL
     return BlockType.P
 
-    def markdown_to_html_node(markdown):
-        blocks = markdown_to_blocks(markdown)
 
-        for block in blocks:
-            block_type = block_to_block_type(block)
-            
+def text_to_children(text):
+    html_nodes = []
+    text_node = text_to_textnodes(text)
+    for node in text_node:
+        html_node = text_node_to_html_node(node)
+        html_nodes.append(html_node)
+    return html_nodes
+    
+
+def markdown_to_html_node(markdown):
+    page = []
+    blocks = markdown_to_blocks(markdown)
+    for block in blocks:
+        block_type = block_to_block_type(block)
+        if block_type == BlockType.P:
+            replaced = block.replace("\n", " ")
+            parent = ParentNode("p", text_to_children(replaced))
+            page.append(parent)
+        if block_type == BlockType.Q:
+            quoteless = ""
+            splitted = block.split("\n")
+            for item in splitted: 
+                stripped = item.removeprefix("> ")
+                quoteless += stripped
+            page.append(ParentNode("blockquote", text_to_children(quoteless)))
+        if block_type == BlockType.UL:
+            list_items = []
+            splitted = block.split("\n")
+            for items in splitted:
+                stripped = items.removeprefix("- ")
+                parent = ParentNode("li", text_to_children(stripped))
+                list_items.append(parent)
+            page.append(ParentNode("ul", list_items))
+        if block_type == BlockType.OL:
+            list_items = []
+            splitted = block.split("\n")
+            counter = 1
+            for items in splitted:
+                stripped = items.removeprefix(f"{counter}. ")
+                counter += 1
+                parent = ParentNode("li", text_to_children(stripped))
+                list_items.append(parent)
+            page.append(ParentNode("ol", list_items))
+        if block_type == BlockType.H:
+            level = len(block) - len(block.lstrip("#"))
+            page.append(ParentNode(f"h{level}", text_to_children(block[level + 1:])))
+        if block_type == BlockType.C:
+            prefix_stripped = block.removeprefix("```")
+            suffix_stripped = prefix_stripped.removesuffix("```").lstrip("\n")
+            page.append(ParentNode("pre", [LeafNode("code", suffix_stripped)]))
+    return ParentNode("div",page)
+
+def extract_title(markdown):
+    block = markdown_to_blocks(markdown)
+    
