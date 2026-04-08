@@ -212,7 +212,7 @@ def copy_all_contents(source_directory, destination_directory):
                         copy_all_contents(full_source_path, full_dest_path)
         return destination_directory
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     with open(from_path, "r") as f:
         md = f.read()
@@ -223,6 +223,8 @@ def generate_page(from_path, template_path, dest_path):
     title = extract_title(md)
     template = template.replace("{{ Title }}", title)
     template = template.replace("{{ Content }}", html)
+    template = template.replace('href="/', f'href="{basepath}')
+    template = template.replace('src="/', f'src="{basepath}')
 
     dir_path = os.path.dirname(dest_path)
     os.makedirs(dir_path, exist_ok = True)
@@ -230,16 +232,16 @@ def generate_page(from_path, template_path, dest_path):
     with open(dest_path, "w") as d:
         d.write(template)
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     dirs = os.listdir(dir_path_content)
     for file in dirs:
         joined_path = os.path.join(dir_path_content, file)
         joined_dest_path = os.path.join(dest_dir_path, file)
         if os.path.isfile(joined_path):
             joined_dest_html = pathlib.Path(joined_dest_path).with_suffix(".html")
-            generate_page(joined_path, template_path, joined_dest_html)
+            generate_page(joined_path, template_path, joined_dest_html, basepath)
         else:
-            generate_pages_recursive(joined_path, template_path, joined_dest_path)
+            generate_pages_recursive(joined_path, template_path, joined_dest_path, basepath)
 
 
             
