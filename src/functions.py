@@ -1,4 +1,7 @@
 import re
+import os
+import shutil
+import pathlib
 
 from .textnode import TextType, TextNode
 from .htmlnode import LeafNode, ParentNode
@@ -187,5 +190,58 @@ def markdown_to_html_node(markdown):
     return ParentNode("div",page)
 
 def extract_title(markdown):
-    block = markdown_to_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
+    for block in blocks:
+        splitted = block.split("\n")
+        for line in splitted:
+            if line.startswith("# "):
+                return line.lstrip("# ")
+        raise Exception("There is no header1")
+
+def copy_all_contents(source_directory, destination_directory):
+        if os.path.exists(destination_directory):
+                shutil.rmtree(destination_directory)
+        os.mkdir(destination_directory)
+        file_list = os.listdir(source_directory)
+        for file in file_list:
+                full_source_path = os.path.join(source_directory, file)
+                full_dest_path = os.path.join(destination_directory, file)
+                if os.path.isfile(full_source_path):
+                        shutil.copy(full_source_path, full_dest_path)
+                else:
+                        copy_all_contents(full_source_path, full_dest_path)
+        return destination_directory
+
+def generate_page(from_path, template_path, dest_path):
+    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
+    with open(from_path, "r") as f:
+        md = f.read()
     
+    with open(template_path, "r") as t:
+        template = t.read()
+    html= markdown_to_html_node(md).to_html()
+    title = extract_title(md)
+    template = template.replace("{{ Title }}", title)
+    template = template.replace("{{ Content }}", html)
+
+    dir_path = os.path.dirname(dest_path)
+    os.makedirs(dir_path, exist_ok = True)
+
+    with open(dest_path, "w") as d:
+        d.write(template)
+
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+    dirs = os.listdir(dir_path_content)
+    for file in dirs:
+        joined_path = os.path.join(dir_path_content, file)
+        joined_dest_path = os.path.join(dest_dir_path, file)
+        if os.path.isfile(joined_path):
+            joined_dest_html = pathlib.Path(joined_dest_path).with_suffix(".html")
+            generate_page(joined_path, template_path, joined_dest_html)
+        else:
+            generate_pages_recursive(joined_path, template_path, joined_dest_path)
+
+
+            
+    
+
